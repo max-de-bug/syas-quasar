@@ -1,0 +1,108 @@
+---
+title: Adapter Standard
+description: Normative v1.0 specification — three instructions, share model, events, and error ranges
+---
+
+Version **1.0** defines the minimum surface every yield adapter program must implement. Compliance is verified by the [conformance checklist](/guides/build-your-own-adapter#conformance-checklist) and integration tests.
+
+## Required instructions
+
+Every compliant adapter **must** expose exactly these three instructions — no more, no fewer for the standard interface.
+
+### `deposit`
+
+```rust
+pub fn deposit(ctx: Context<Deposit>, amount: u64) -> Result<()>
+```
+
+<ParamField path="amount" type="u64" required>
+  Underlying token amount to deposit. Must be greater than zero.
+</ParamField>
+
+**Required behavior:**
+
+1. Reject `amount == 0` → `YieldAdapterError::ZeroDepositAmount`
+2. Verify `user_token_account.mint == vault.underlying_mint`
+3. Transfer underlying from user to vault token account
+4. Compute receipt shares via `shares_for_deposit(amount, total_underlying, total_shares)`
+5. Update vault totals and `AdapterPosition.receipt_token_balance`
+6. Emit [`DepositEvent`](/reference/events#depositevent)
+
+### `withdraw`
+
+```rust
+pub fn withdraw(ctx: Context<Withdraw>, amount: u64) -> Result<()>
+```
+
+<ParamField path="amount" type="u64" required>
+  **Receipt shares to burn**, not underlying amount. Must be greater than zero.
+</ParamField>
+
+**Required behavior:**
+
+1. Reject `amount == 0` → `YieldAdapterError::ZeroWithdrawAmount`
+2. Verify user has sufficient `receipt_token_balance`
+3. Compute underlying via `user_position_underlying_value(shares, total_underlying, total_shares)`
+4. Transfer underlying from vault to user (vault authority PDA signs)
+5. Decrement vault totals and position balance
+6. Emit [`WithdrawEvent`](/reference/events#withdrawevent)
+
+### `current_value`
+
+```rust
+pub fn current_value(ctx: Context<CurrentValue>) -> Result<()>
+```
+
+Read-only query. **Must not** transfer tokens or burn shares.
+
+<Warning>
+`CurrentValueEvent.value` is the **caller's position in underlying token units**, computed from their `receipt_token_balance`. It is **not** the global share price.
+</Warning>
+
+```rust
+let value = user_position_underlying_value(
+    position.receipt_token_balance,
+    vault.total_underlying,
+    vault.total_shares,
+)?;
+emit!(CurrentValueEvent { user, adapter, value, timestamp });
+```
+
+## Share price model
+
+All math uses `u128` intermediates and `checked_*` operations.
+
+```
+share_price     = total_underlying × 1e9 ÷ total_shares   (when total_shares > 0)
+shares_out      = deposit_amount × 1e9 ÷ share_price
+underlying_out  = shares_burned × share_price ÷ 1e9
+```
+
+<Info>
+The `1e9` scaling factor provides nine decimal places of precision for share pricing. First deposit is 1:1 (shares == underlying amount).
+</Info>
+
+## Standard events
+
+| Event | When emitted | Key fields |
+|---|---|---|
+| `DepositEvent` | Successful deposit | `amount`, `receipt_amount` |
+| `WithdrawEvent` | Successful withdraw | `amount` (underlying), `receipt_burned` |
+| `CurrentValueEvent` | Value query | `value` (user underlying balance) |
+
+Full schemas: [Events reference](/reference/events).
+
+## Error code ranges
+
+| Range | Owner | Examples |
+|---|---|---|
+| `6000–6099` | `yield-adapter-trait` | `ZeroDepositAmount`, `InsufficientReceiptBalance` |
+| `6100–6199` | Dispatcher | `AdapterNotApproved`, `DispatcherPaused` |
+| `6200–6299` | Registry | `InvalidStatus`, `Unauthorized` |
+| `7000+` | Protocol-specific | e.g. Drift `CooldownNotElapsed` |
+
+Full table: [Error codes](/reference/errors).
+
+## Conformance
+
+An adapter is conformant when it passes every item in the [build guide checklist](/guides/build-your-own-adapter#conformance-checklist) and the repository's `npm test` suite against your program.

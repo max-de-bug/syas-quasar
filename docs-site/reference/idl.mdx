@@ -1,0 +1,52 @@
+---
+title: IDL Reference
+description: Interface Definition Language artifacts for all seven programs
+---
+
+Anchor generates IDL JSON files during build. Client SDKs, CPI consumers, and indexers all depend on these artifacts staying in sync with on-chain programs.
+
+## Programs
+
+| Program | IDL path |
+|---|---|
+| Yield Dispatcher | `target/idl/yield_dispatcher.json` |
+| Adapter Registry | `target/idl/adapter_registry.json` |
+| Kamino Adapter | `target/idl/adapter_kamino.json` |
+| MarginFi Adapter | `target/idl/adapter_marginfi.json` |
+| Jupiter Adapter | `target/idl/adapter_jupiter.json` |
+| Maple Adapter | `target/idl/adapter_maple.json` |
+| Drift Adapter | `target/idl/adapter_drift.json` |
+
+## Generate IDLs
+
+```bash
+npm run build          # SBF build + all IDLs
+npm run build:idls     # IDLs only (requires prior SBF build)
+```
+
+IDLs are written to `target/idl/` by `scripts/build-idls.sh`.
+
+<Tip>
+After changing account layouts or instruction args, rebuild IDLs before running tests or updating TypeScript clients.
+</Tip>
+
+## TypeScript client
+
+```typescript
+import idl from "../target/idl/yield_dispatcher.json";
+import { Program, AnchorProvider } from "@coral-xyz/anchor";
+
+const program = new Program(idl, provider);
+```
+
+The test suite in `tests/` demonstrates full account wiring for every instruction.
+
+## Rust CPI
+
+```toml
+# programs/yield-dispatcher/Cargo.toml
+[dependencies]
+adapter-kamino = { path = "../adapter-kamino", features = ["cpi"] }
+```
+
+Use generated `cpi` modules for cross-program invocations with type-safe account structs.

@@ -1,0 +1,65 @@
+---
+title: Reference vs Production
+description: Scope of this repository — what it proves and what production adapters must add
+---
+
+<Note>
+Superteam Ukraine bounty deliverable: a **reference standard** and five **reference adapters** — not live protocol integrations.
+</Note>
+
+## What this repo implements
+
+| Component | Status | Role |
+|---|---|---|
+| Yield Dispatcher | Complete | Routes CPI to approved adapters |
+| Adapter Registry | Deployed (devnet) | propose → approve → revoke |
+| `yield-adapter-trait` | Complete | Events, errors, math, position macro |
+| 5 reference adapters | Complete | Share-based SPL vaults |
+| Integration tests | 36 total | 16 local + 20 fork |
+
+## What it deliberately does not do
+
+<Warning>
+Do not present this repo as production yield routing into Kamino, MarginFi, Jupiter, Maple, or Drift without adding real protocol CPI.
+</Warning>
+
+| Gap | Detail |
+|---|---|
+| **No live protocol CPI** | USDC moves between user ATAs and adapter vault ATAs only |
+| **Maple** | Simulated APY on vault NAV — EVM-primary protocol |
+| **Drift cooldown** | Tracked on `AdapterPosition`, not enforced by Drift program |
+| **Oracle / risk accounts** | Not wired for MarginFi JIT or Kamino reserve health |
+
+## What tests actually prove
+
+<Check>All five adapters complete deposit → `current_value` → withdraw</Check>
+<Check>Registry governance lifecycle works end-to-end</Check>
+<Check>Dispatcher rejects unapproved and revoked adapters</Check>
+<Check>Mainnet program bytecode clones load on fork validator</Check>
+<Check>USDC SPL flows work with fork fixture accounts</Check>
+
+Tests do **not** prove that positions inside live Kamino reserves, MarginFi banks, or Drift insurance funds behave identically.
+
+## Path to production
+
+<Steps>
+  <Step title="Conform to the standard">
+    Three instructions, standard events, per-user `current_value`. [Adapter Standard](/adapter-standard)
+  </Step>
+  <Step title="Add protocol CPI">
+    Replace or wrap vault logic with CPI into the target program's deposit/withdraw accounts.
+  </Step>
+  <Step title="Fork-test with real accounts">
+    Clone protocol program + realistic user positions in `solana-test-validator`. [Testing](/guides/testing)
+  </Step>
+  <Step title="Register on-chain">
+    `propose_adapter` → governance `approve_adapter`. [Registry](/registry)
+  </Step>
+  <Step title="Audit and deploy">
+    Security review, multisig governance, mainnet deploy. [Deployment](/guides/deployment)
+  </Step>
+</Steps>
+
+## For judges and integrators
+
+This submission demonstrates **interface design**, **composability** (dispatcher + registry), **developer ergonomics** (trait crate, golden Kamino reference, &lt;1-day build guide), and **test coverage** — within the bounty scope of a reference implementation, not a production DeFi integration.

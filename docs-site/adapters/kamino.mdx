@@ -1,0 +1,63 @@
+---
+title: Kamino Adapter
+description: Golden reference adapter — K-Lend USDC share vault pattern
+---
+
+<Note>
+**Reference implementation.** This program demonstrates the standard with a local SPL vault. It does **not** CPI into Kamino K-Lend on mainnet.
+</Note>
+
+| | |
+|---|---|
+| **Inspired by** | [Kamino Finance](https://kamino.finance) K-Lend |
+| **Mainnet protocol ID** | `KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD` |
+| **Adapter program (devnet)** | `BzuVWb3UgCW6axee6ZNb812D268XrWkJsE7mxkX9b3Kp` |
+| **Underlying** | USDC |
+| **Model** | Share-based vault (kToken-style receipt shares) |
+
+## Why Kamino is the golden reference
+
+Start here when building your own adapter. `programs/adapter-kamino/` is the smallest complete implementation of:
+
+- `deposit` / `withdraw` / `current_value`
+- `define_adapter_position!` for per-user PDAs
+- Vault authority PDA signing outbound transfers
+- Token mint constraints on deposit and withdraw
+
+## Instruction summary
+
+| Instruction | Input | Effect |
+|---|---|---|
+| `deposit` | Underlying amount | Mint receipt shares; transfer USDC user → vault |
+| `withdraw` | Receipt shares | Burn shares; transfer pro-rata USDC vault → user |
+| `current_value` | — | Emit user's underlying balance (not global share price) |
+
+## Key accounts
+
+| Account | Description |
+|---|---|
+| `vault_state` | `KaminoVaultState` PDA — `total_underlying`, `total_shares` |
+| `user_position` | Per-user `AdapterPosition` — `receipt_token_balance` |
+| `vault_token_account` | SPL token account owned by vault authority PDA |
+| `vault_authority` | PDA signer for outbound vault transfers |
+
+## PDA seeds
+
+```
+vault_state:     ["kamino_vault_state"]
+vault_authority: ["kamino_vault_authority"]
+user_position:   ["adapter_position", user_pubkey]
+```
+
+## Production path
+
+A production Kamino adapter would CPI `deposit_reserve_liquidity` and `redeem_reserve_collateral` on the K-Lend program, passing reserve and market accounts via `remaining_accounts`. Fork tests in this repo clone the Kamino program ID to validate deployment plumbing — not live position parity.
+
+<CardGroup cols={2}>
+  <Card title="Build Your Adapter" icon="hammer" href="/guides/build-your-own-adapter">
+    Step-by-step guide using Kamino as template.
+  </Card>
+  <Card title="Source code" icon="github" href="https://github.com/max-de-bug/solana-yield-adapter-standard/tree/main/programs/adapter-kamino">
+    `programs/adapter-kamino/`
+  </Card>
+</CardGroup>

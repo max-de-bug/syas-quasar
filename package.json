@@ -1,0 +1,33 @@
+{
+  "name": "syas-quasar",
+  "version": "1.0.0",
+  "description": "Solana Yield Adapter Standard — Quasar port for framework speed benchmark vs Anchor",
+  "license": "Apache-2.0",
+  "scripts": {
+    "build": "bash scripts/build-quasar.sh",
+    "build:anchor-legacy": "bash scripts/build-sbf.sh && bash scripts/build-idls.sh",
+    "build:idls": "bash scripts/build-idls.sh",
+    "test": "npx ts-mocha",
+    "test:fork": "bash scripts/run-mainnet-fork-tests.sh",
+    "benchmark": "bash scripts/benchmark-frameworks.sh",
+    "lint": "cargo clippy --workspace -- -D warnings",
+    "fmt": "cargo fmt --all",
+    "deploy:devnet": "bash scripts/deploy-devnet.sh",
+    "docs:dev": "cd docs-site && npx mintlify dev",
+    "clean": "rm -rf target/deploy test-ledger benchmark-results"
+  },
+  "dependencies": {
+    "@anchor-lang/core": "1.0.1",
+    "@solana/web3.js": "^1.95.8",
+    "@solana/spl-token": "^0.4.13"
+  },
+  "devDependencies": {
+    "@types/bn.js": "^5.1.5",
+    "@types/chai": "^4.3.16",
+    "@types/mocha": "^10.0.7",
+    "chai": "^4.4.1",
+    "mocha": "^10.7.0",
+    "ts-mocha": "^10.0.0",
+    "typescript": "^5.5.0"
+  }
+}

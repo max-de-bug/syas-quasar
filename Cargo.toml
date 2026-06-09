@@ -1,0 +1,25 @@
+[workspace]
+members = [
+    "crates/yield-adapter-trait",
+    "programs/adapter-drift",
+    "programs/adapter-jupiter",
+    "programs/adapter-kamino",
+    "programs/adapter-maple",
+    "programs/adapter-marginfi",
+    "programs/adapter-registry",
+    "programs/adapter-template",
+    "programs/yield-dispatcher",
+]
+resolver = "2"
+
+[workspace.dependencies]
+quasar-lang = { path = "../quasar/lang" }
+quasar-spl = { path = "../quasar/spl" }
+
+[profile.release]
+overflow-checks = true
+lto = "fat"
+codegen-units = 1
+
+[profile.release.build-override]
+opt-level = 3

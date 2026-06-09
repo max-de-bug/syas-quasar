@@ -1,0 +1,56 @@
+---
+title: Maple Adapter
+description: Reference adapter — syrupUSDC share model with simulated yield accrual
+---
+
+<Warning>
+Maple Finance is **EVM-primary**. This Solana adapter demonstrates interface compliance and **simulated APY** on vault NAV — not a live Maple protocol integration.
+</Warning>
+
+| | |
+|---|---|
+| **Inspired by** | [Maple Finance](https://maple.finance) syrupUSDC |
+| **Adapter program (devnet)** | `Ft2Yvaiqwsjvo1yyYEWvt12YCsDB4kjGBd7vrF8RwwjU` |
+| **Underlying** | USDC |
+| **Model** | Share vault with time-based yield simulation |
+
+## Overview
+
+Maple's syrupUSDC pools use a share-based NAV that accrues as loans perform. Because Maple has limited Solana deployment, this adapter:
+
+1. Implements the full three-instruction standard
+2. Accrues yield on `total_underlying` over elapsed slots (demonstration only)
+3. Serves as a template for cross-chain protocols launching on Solana
+
+## Instruction summary
+
+| Instruction | Input | Effect |
+|---|---|---|
+| `deposit` | Underlying amount | Mint shares at current NAV |
+| `withdraw` | Receipt shares | Burn shares at current NAV |
+| `current_value` | — | User underlying value after simulated accrual |
+
+## PDA seeds
+
+```
+vault_state:     ["maple_vault_state"]
+vault_authority: ["maple_vault_authority"]
+user_position:   ["adapter_position", user_pubkey]
+```
+
+## When to use this pattern
+
+Teams building adapters for protocols that:
+
+- Are deploying from EVM to Solana
+- Have CPI under development but need a working standard-compliant program today
+- Want to demonstrate share-price appreciation without live protocol state
+
+<CardGroup cols={2}>
+  <Card title="Reference Scope" icon="circle-info" href="/guides/reference-implementation">
+    What mock adapters prove in this repo.
+  </Card>
+  <Card title="Source code" icon="github" href="https://github.com/max-de-bug/solana-yield-adapter-standard/tree/main/programs/adapter-maple">
+    `programs/adapter-maple/`
+  </Card>
+</CardGroup>

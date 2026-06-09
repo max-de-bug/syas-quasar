@@ -1,0 +1,12 @@
+[package]
+name = "yield-adapter-trait"
+version = "1.0.0"
+description = "Shared types, events, errors, and math for SYAS adapters (Quasar)"
+edition = "2021"
+license = "Apache-2.0"
+
+[features]
+idl-build = ["quasar-lang/idl-build"]
+
+[dependencies]
+quasar-lang = { workspace = true }

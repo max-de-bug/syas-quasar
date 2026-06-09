@@ -1,0 +1,49 @@
+---
+title: MarginFi Adapter
+description: Reference adapter — MarginFi v2 USDC lending pattern
+---
+
+<Note>
+**Reference implementation.** Local SPL vault only — no CPI into MarginFi's lending program.
+</Note>
+
+| | |
+|---|---|
+| **Inspired by** | [MarginFi](https://marginfi.com) v2 |
+| **Mainnet protocol ID** | `MFv2hWf31Z9kbCa1snEPYctwafyhdvnV7FZnsebVacA` |
+| **Adapter program (devnet)** | `FrCvyyGSukMZcLhpU7EneuhfPmqS5p8E2ysnFdwHhopR` |
+| **Underlying** | USDC |
+| **Model** | Share-based lending vault |
+
+## Overview
+
+MarginFi v2 uses a Just-In-Time (JIT) risk engine over bank accounts and oracles. This reference adapter captures the **share receipt model** without integrating MarginFi's account graph.
+
+## Instruction summary
+
+| Instruction | Input | Effect |
+|---|---|---|
+| `deposit` | Underlying amount | Credit receipt shares; SPL transfer to vault |
+| `withdraw` | Receipt shares | Burn shares; return pro-rata underlying |
+| `current_value` | — | Per-user underlying value from `receipt_token_balance` |
+
+## PDA seeds
+
+```
+vault_state:     ["marginfi_vault_state"]
+vault_authority: ["marginfi_vault_authority"]
+user_position:   ["adapter_position", user_pubkey]
+```
+
+## Production path
+
+Production CPI would call `lending_account_deposit` / `lending_account_withdraw` with `remaining_accounts` for banks, oracles, and the user's MarginFi account. The JIT risk engine evaluates collateralization at transaction time — no separate refresh instruction.
+
+<CardGroup cols={2}>
+  <Card title="Testing" icon="vial" href="/guides/testing">
+    MarginFi program cloned in mainnet-fork tests.
+  </Card>
+  <Card title="Source code" icon="github" href="https://github.com/max-de-bug/solana-yield-adapter-standard/tree/main/programs/adapter-marginfi">
+    `programs/adapter-marginfi/`
+  </Card>
+</CardGroup>

@@ -1,0 +1,11 @@
+spec:
+  - tests/registry.test.ts
+  - tests/dispatcher.test.ts
+  - tests/adapters/kamino.test.ts
+  - tests/adapters/marginfi.test.ts
+  - tests/adapters/jupiter.test.ts
+  - tests/adapters/maple.test.ts
+  - tests/adapters/drift.test.ts
+  - tests/adapters/template.test.ts
+timeout: 120000
+exit: true
