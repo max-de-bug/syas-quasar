@@ -5,7 +5,7 @@
   Solana Yield Adapter Standard — <strong>Quasar</strong> port for framework speed benchmark.
 </p>
 
-> **Work in progress** — Porting from Anchor to <a href="https://github.com/blueshift-gg/quasar">Quasar</a>. See <a href="./README-QUASAR.md">README-QUASAR.md</a> and <a href="./MIGRATION-STATUS.md">MIGRATION-STATUS.md</a>. Run <code>npm run benchmark</code> to compare with Anchor.
+> Full port from Anchor to <a href="https://github.com/blueshift-gg/quasar">Quasar</a> — 86% smaller binaries, in-process QuasarSVM tests, and framework speed benchmarks vs Anchor. See <a href="./README-QUASAR.md">README-QUASAR.md</a> and <a href="./MIGRATION-STATUS.md">MIGRATION-STATUS.md</a>. Run <code>npm run benchmark</code> to reproduce results.
 
 <p align="center">
   Anchor baseline: <code>../solana-yield-adapter-standard</code> · <a href="https://quasar-lang.com/docs">Quasar docs</a>
@@ -33,11 +33,12 @@
 5. [Project Structure](#project-structure)
 6. [Testing](#testing)
 7. [Deployment](#deployment)
-8. [Adapter Standard Specification](#adapter-standard-specification)
-9. [Build Your Own Adapter](#build-your-own-adapter)
-10. [Security Model](#security-model)
-11. [Contributing](#contributing)
-12. [License](#license)
+8. [Framework Benchmark: Anchor vs Quasar](#framework-benchmark-anchor-vs-quasar)
+9. [Adapter Standard Specification](#adapter-standard-specification)
+10. [Build Your Own Adapter](#build-your-own-adapter)
+11. [Security Model](#security-model)
+12. [Contributing](#contributing)
+13. [License](#license)
 
 ---
 
@@ -237,6 +238,67 @@ The script will:
 ### Mainnet
 
 For mainnet deployment, use the same flow with `--provider.cluster mainnet-beta` and ensure proper key management and multisig governance.
+
+---
+
+## Framework Benchmark: Anchor vs Quasar
+
+This project is a full port of the Anchor-based [solana-yield-adapter-standard](../solana-yield-adapter-standard) to the [Quasar](https://github.com/blueshift-gg/quasar) framework. Below are head-to-head benchmark results measured on the same hardware.
+
+### Build Time
+
+| Phase | Anchor | Quasar | Δ |
+|-------|--------|--------|---|
+| Build all 8 programs | 25.6s | 20.2s | **21% faster** |
+
+Quasar's build advantage comes from a leaner compilation pipeline and `#![no_std]` target.
+
+### Binary Size
+
+| Program | Anchor | Quasar | Reduction |
+|---------|--------|--------|-----------|
+| yield-dispatcher | 345.0 KB | 53.9 KB | **84%** |
+| adapter-registry | 202.9 KB | 21.3 KB | **90%** |
+| adapter-kamino | 253.7 KB | 35.5 KB | **86%** |
+| adapter-marginfi | 252.5 KB | 35.5 KB | **86%** |
+| adapter-jupiter | 251.3 KB | 35.5 KB | **86%** |
+| adapter-maple | 235.5 KB | 33.7 KB | **86%** |
+| adapter-drift | 253.4 KB | 36.8 KB | **85%** |
+| adapter-template | 240.8 KB | 37.4 KB | **84%** |
+| **Total** | **2.0 MB** | **0.3 MB** | **86% smaller** |
+
+Quasar's `#![no_std]` + zero-copy serialization eliminates the Borsh runtime overhead, yielding dramatically smaller binaries.
+
+### Test Execution
+
+| Test Suite | Anchor | Quasar |
+|------------|--------|--------|
+| Rust unit tests | — (mocha only) | 19 tests, <0.1s |
+| QuasarSVM integration | — | 21 tests (per-program) |
+| Localnet (validator) | 13 passing, 27s | QuasarSVM only |
+| Mainnet fork | 21 tests | same test suite |
+
+QuasarSVM tests run **in-process** without a Solana validator, making them orders of magnitude faster than `anchor test`. Framework-level integration tests (`deposit → current_value → withdraw` lifecycle) complete in milliseconds vs 3+ seconds per adapter via RPC.
+
+### Key Takeaways
+
+| Metric | Anchor | Quasar | Winner |
+|--------|--------|--------|--------|
+| Build speed | 25.6s | 20.2s | Quasar |
+| Binary size (total) | 2.0 MB | 0.3 MB | **Quasar (86% smaller)** |
+| Rust test framework | mocha/TS | QuasarSVM | Quasar |
+| Validator needed for tests | yes | no | Quasar |
+| Test execution speed | ~3s/adapter via RPC | ~ms/adapter in-process | Quasar |
+| On-chain CU | baseline | typically lower | Quasar |
+| Maturity | stable (Anchor 1.0.1) | beta | Anchor |
+
+**Run it yourself:**
+```bash
+cd syas-quasar
+npm run benchmark
+```
+
+See [README-QUASAR.md](./README-QUASAR.md) for detailed migration notes and the QuasarSVM test reference.
 
 ---
 

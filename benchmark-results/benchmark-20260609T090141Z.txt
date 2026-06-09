@@ -1,0 +1,39 @@
+SYAS Framework Benchmark — 20260609T090141Z
+Anchor project: /home/test01/projects/solana-yield-adapter-standard
+Quasar project: /home/test01/projects/syas-quasar
+Agave 3.1.10 toolchain active: /home/test01/.local/share/solana/install/releases/3.1.10/solana-release/bin
+
+########## ANCHOR ##########
+
+=== Anchor: build ===
+Command: bash -c cd '/home/test01/projects/solana-yield-adapter-standard' && npm run build
+OK  40.42s
+
+=== Anchor: test execution only ===
+Command: bash -c cd '/home/test01/projects/solana-yield-adapter-standard' && npm test
+FAILED
+Anchor build: 40.42s
+Anchor local tests: FAILs
+
+Anchor full fork (build+clone+deploy+20 TS tests):
+  cd '/home/test01/projects/solana-yield-adapter-standard' && time npm run test:fork
+
+########## QUASAR ##########
+
+=== Quasar: build ===
+Command: bash -c cd '/home/test01/projects/syas-quasar' && npm run build
+OK  39.10s
+Quasar build: 39.10s
+
+=== Quasar: cargo test ===
+Command: bash -c cd '/home/test01/projects/syas-quasar' && CARGO_TARGET_DIR='/home/test01/projects/syas-quasar/target' cargo test 2>&1
+FAILED
+Quasar cargo test: FAILs
+
+Quasar full fork — run manually:
+  cd '/home/test01/projects/syas-quasar' && time npm run test:fork
+
+########## SUMMARY ##########
+
+
+Report saved: /home/test01/projects/syas-quasar/benchmark-results/benchmark-20260609T090141Z.txt
