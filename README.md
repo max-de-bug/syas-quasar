@@ -329,6 +329,42 @@ QuasarSVM tests run **in-process** without a Solana validator, making them order
 | On-chain CU | baseline | typically lower | Quasar |
 | Maturity | stable (Anchor 1.0.1) | beta | Anchor |
 
+### Architectural Deep Dive
+
+The benchmark numbers above stem from fundamental design differences between Anchor and Quasar.
+
+| Dimension | Anchor | Quasar |
+|---|---|---|
+| **Account parsing** | Borsh deserialize (heap alloc) — every account access allocates + decodes struct fields | Zero-copy pointer cast — SVM buffer bytes are cast to `#[repr(C)]` companion types; no allocation, no decoding |
+| **Runtime** | `std` + default heap allocator | `#![no_std]` + `#![no_alloc]` by default |
+| **Discriminator** | 8 bytes per instruction and per account (SHA256 of `"global:method"` / `"account:Struct"`) | 1 byte per instruction and per account (explicit `#[instruction(discriminator = N)]`) |
+| **CPI mechanism** | `CpiContext` + `AccountInfo` clones + SHA256 discriminator computation (heap allocates `Vec<AccountMeta>`, `Vec<u8>` instruction data) | `CpiDynamic<M, N>` const-generic stack arrays + raw `sol_invoke_signed_c` syscall; zero heap allocation |
+| **PDA derivation** | ~1,500 CU per attempt (indirect syscall via `sol_try_find_program_address`) | ~544 CU per attempt (direct `sol_sha256` + `sol_curve_validate_point` syscalls) |
+| **Account data types** | `u64`, `bool`, `Pubkey` — Borsh-serialized | `PodU64`, `PodBool`, `Address` — alignment-1 `#[repr(C)]`, zero-copy compatible |
+| **Event emission** | Log-based via `sol_log_data` | Log-based (~100 CU) or self-CPI (~1,000 CU) — developer choice |
+| **Entrypoint** | `solana_program::entrypoint!` — deserializes all accounts into `Vec<AccountInfo>` on the heap | Raw `extern "C" fn` — walks SVM buffer with pointer arithmetic, no intermediate allocation |
+| **Binary composition** | Borsh derive codegen for every account/instruction, `std` runtime, panic format strings, heap allocator | Only code that is written; no Borsh overhead, no `std`, panic just calls `abort_program()` |
+
+#### Estimated CU savings per instruction (e.g., adapter `deposit`)
+
+| Operation | Anchor (baseline) | Quasar | Savings |
+|---|---|---|---|
+| Account parsing (5+ accounts) | ~1,000–2,000 CU (Borsh) | ~50–100 CU (pointer cast) | ~950–1,900 CU |
+| CPI overhead | ~200–500 CU (`Vec` allocations + `AccountInfo` clones) | ~20–50 CU (stack arrays + raw syscall) | ~180–450 CU |
+| PDA derivation (if needed) | ~1,500 CU | ~544 CU | ~956 CU |
+| Instruction data processing | ~50–100 CU (8-byte disc + slice parsing) | ~10–20 CU (1-byte disc + raw bytes) | ~40–80 CU |
+| **Total per instruction (typical)** | **~1,750–3,100 CU** | **~624–670 CU** | **~60–80% less CU** |
+
+#### Tradeoffs
+
+- **Maturity**: Anchor 1.0.1 is stable, audited, well-documented. Quasar is beta, not yet audited, and its API may still change.
+- **Safety**: Anchor uses safe Rust throughout. Quasar's zero-copy path relies on `unsafe` pointer casts — the framework validates bounds and alignment, but is newer.
+- **Ecosystem**: Anchor has richer tooling, more integrations, and a larger community. Quasar's ecosystem is emerging.
+- **Developer experience**: Anchor scaffolds with `anchor init`, has a mature TypeScript SDK, and is familiar to most Solana developers. Quasar requires learning new patterns (`PodU64`, `Address`, explicit discriminators) and has a smaller body of examples.
+- **Migration cost**: Porting Anchor programs to Quasar requires rewriting macro annotations, swapping types (`Pubkey` → `Address`, `u64` → `PodU64`), and regenerating clients. See [MIGRATION-STATUS.md](./MIGRATION-STATUS.md).
+
+**Which should you choose?** If you need proven production safety, maximum ecosystem support, and developer familiarity, Anchor is the pragmatic choice. If you are optimizing for binary size, compute-unit efficiency, or test iteration speed, and can accept the beta maturity, Quasar offers compelling advantages — especially for multi-program deployments like SYAS.
+
 **Run it yourself:**
 ```bash
 cd syas-quasar
