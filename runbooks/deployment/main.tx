@@ -1,0 +1,41 @@
+addon "svm" {
+    rpc_api_url = input.rpc_api_url
+    network_id = input.network_id
+}
+
+action "deploy_all" "svm::setup_surfnet" {
+    description = "Deploy all SYAS programs via cheatcode (instant)"
+
+    deploy_program {
+        program_id = "CVfb8T9tf9WEeus4mKWsxTehVezeY9TGwYsSc3JmxWYz"
+        binary_path = "./target/deploy/adapter_drift.so"
+    }
+    deploy_program {
+        program_id = "2acqkTDi2VQ4FCZVDB8PeMVLVWnREogE5HA2GxvHdWxu"
+        binary_path = "./target/deploy/adapter_jupiter.so"
+    }
+    deploy_program {
+        program_id = "BzuVWb3UgCW6axee6ZNb812D268XrWkJsE7mxkX9b3Kp"
+        binary_path = "./target/deploy/adapter_kamino.so"
+    }
+    deploy_program {
+        program_id = "Ft2Yvaiqwsjvo1yyYEWvt12YCsDB4kjGBd7vrF8RwwjU"
+        binary_path = "./target/deploy/adapter_maple.so"
+    }
+    deploy_program {
+        program_id = "FrCvyyGSukMZcLhpU7EneuhfPmqS5p8E2ysnFdwHhopR"
+        binary_path = "./target/deploy/adapter_marginfi.so"
+    }
+    deploy_program {
+        program_id = "CeyDkRgegNUz2TeFfFjRdL89G9EGGDymiqHoJkeFGcZ4"
+        binary_path = "./target/deploy/adapter_registry.so"
+    }
+    deploy_program {
+        program_id = "AzGucBSAxRMme758P9WsXqZASqnea7xZqKr7ys6gvCcX"
+        binary_path = "./target/deploy/adapter_template.so"
+    }
+    deploy_program {
+        program_id = "7oUKys5XKMzD2NmFCZyLDyTF2Hm1VH3qX8jVfZEY4f3r"
+        binary_path = "./target/deploy/yield_dispatcher.so"
+    }
+}
