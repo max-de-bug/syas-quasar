@@ -40,7 +40,7 @@ impl CurrentValue {
             let last_request: i64 = self.user_position.last_withdraw_request.into();
             if last_request > 0 {
                 let elapsed = now.saturating_sub(last_request);
-                (UNSTAKE_COOLDOWN_SECONDS - elapsed).max(0)
+                UNSTAKE_COOLDOWN_SECONDS.saturating_sub(elapsed).max(0)
             } else {
                 0
             }
