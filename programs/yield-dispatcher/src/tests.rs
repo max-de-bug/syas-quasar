@@ -25,7 +25,8 @@ fn token_balance(account: &Account) -> u64 {
 
 fn deploy_elf(name: &str) -> Vec<u8> {
     let manifest = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
-    let candidates = [
+    let workspace = manifest.parent().and_then(|p| p.parent());
+    let mut candidates: Vec<Option<PathBuf>> = vec![
         std::env::var("CARGO_TARGET_DIR")
             .ok()
             .map(|d| PathBuf::from(d).join(format!("deploy/{name}.so"))),
@@ -37,6 +38,9 @@ fn deploy_elf(name: &str) -> Vec<u8> {
         Some(manifest.join(format!("../adapter-maple/target/deploy/{name}.so"))),
         Some(manifest.join(format!("../adapter-drift/target/deploy/{name}.so"))),
     ];
+    if let Some(root) = workspace {
+        candidates.push(Some(root.join(format!("target/deploy/{name}.so"))));
+    }
     for path in candidates.into_iter().flatten() {
         if path.exists() {
             return std::fs::read(path).expect("read elf");

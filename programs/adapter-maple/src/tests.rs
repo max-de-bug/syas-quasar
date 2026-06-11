@@ -22,7 +22,14 @@ fn deploy_elf_path() -> PathBuf {
             return path;
         }
     }
-    PathBuf::from(std::env!("CARGO_MANIFEST_DIR")).join("target/deploy/adapter_maple.so")
+    let manifest = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
+    if let Some(workspace) = manifest.parent().and_then(|p| p.parent()) {
+        let path = workspace.join("target/deploy/adapter_maple.so");
+        if path.exists() {
+            return path;
+        }
+    }
+    manifest.join("target/deploy/adapter_maple.so")
 }
 
 fn setup() -> QuasarSvm {

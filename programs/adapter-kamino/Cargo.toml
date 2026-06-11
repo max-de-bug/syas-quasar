@@ -30,4 +30,5 @@ yield-adapter-trait = { path = "../../crates/yield-adapter-trait" }
 adapter_kamino-client = { path = "target/client/rust/adapter_kamino-client" }
 quasar-svm = { git = "https://github.com/blueshift-gg/quasar-svm" }
 solana-address = { version = "=2.2.0", features = ["curve25519", "wincode"] }
+solana-instruction = "3"
 spl-token-interface = { version = "2.0.0" }

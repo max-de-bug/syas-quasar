@@ -26,6 +26,18 @@ ATA_PROGRAM="ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
 USDC_MINT="EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
 SYRUP_USDC_MINT="AvZZF1YaZDziPY2RCK4oJrRVrbN3mTD9NL24hPeaZeUj"
 
+# CPI fork-test accounts
+KAMINO_LENDING_MARKET="7u3HeHxYDLhnCoErrtycNokbQYbWGzLs6JSDqGAv5PfF"
+KAMINO_USDC_RESERVE="d4A2prbA2whesmvHaL88BH6Ewn5N4bTSU2Ze8P6Bc4Q"
+JUPITER_USDC_CUSTODY="G18jKKXQwBbrHeiK3C9MRXhkHsLHf7XgCSisykV46EZa"
+
+# TODO: Add remaining Jupiter accounts for full CPI test:
+# - JUPITER_PERPETUALS: Perpetuals state account
+# - JUPITER_POOL: USDC pool state  
+# - JUPITER_LP_MINT: LP token mint
+# - JUPITER_EVENT_AUTHORITY: Event authority
+# See tests/helpers/jupiter.ts and tests/adapters/jupiter.test.ts for details
+
 VALIDATOR_DIR="${PROJECT_DIR}/test-ledger"
 
 cleanup() {
@@ -65,6 +77,9 @@ VALIDATOR_ARGS=(
     --clone "$USDC_MINT"
     --clone "$SYRUP_USDC_MINT"
     --clone "$ATA_PROGRAM"
+    --clone "$KAMINO_LENDING_MARKET"
+    --clone "$KAMINO_USDC_RESERVE"
+    --clone "$JUPITER_USDC_CUSTODY"
 )
 
 if [ -f "$FIXTURE_ATA" ]; then

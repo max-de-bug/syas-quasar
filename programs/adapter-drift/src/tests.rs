@@ -1,10 +1,11 @@
 extern crate std;
 
 use {
+    crate::protocol::DRIFT_V2_ID,
     quasar_svm::{Account, Instruction, Pubkey, QuasarSvm},
     solana_instruction::AccountMeta,
     spl_token_interface::state::{Account as TokenAccount, AccountState},
-    std::{path::PathBuf, vec},
+    std::{path::PathBuf, vec, vec::Vec},
 };
 
 const USER: Pubkey = Pubkey::new_from_array([1; 32]);
@@ -22,7 +23,14 @@ fn deploy_elf_path() -> PathBuf {
             return path;
         }
     }
-    PathBuf::from(std::env!("CARGO_MANIFEST_DIR")).join("target/deploy/adapter_drift.so")
+    let manifest = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
+    if let Some(workspace) = manifest.parent().and_then(|p| p.parent()) {
+        let path = workspace.join("target/deploy/adapter_drift.so");
+        if path.exists() {
+            return path;
+        }
+    }
+    manifest.join("target/deploy/adapter_drift.so")
 }
 
 fn setup() -> QuasarSvm {
@@ -90,21 +98,24 @@ fn deposit_ix(
     user_position: Pubkey,
     vault_authority: Pubkey,
     amount: u64,
+    remaining: Vec<AccountMeta>,
 ) -> Instruction {
     let mut data = vec![1];
     data.extend_from_slice(&amount.to_le_bytes());
+    let mut accounts = vec![
+        AccountMeta::new(user, true),
+        AccountMeta::new(vault_state, false),
+        AccountMeta::new(user_position, false),
+        AccountMeta::new(USER_ATA, false),
+        AccountMeta::new_readonly(vault_authority, false),
+        AccountMeta::new(VAULT_ATA, false),
+        AccountMeta::new_readonly(quasar_svm::SPL_TOKEN_PROGRAM_ID, false),
+        AccountMeta::new_readonly(quasar_svm::system_program::ID, false),
+    ];
+    accounts.extend(remaining);
     Instruction {
         program_id: crate::ID,
-        accounts: vec![
-            AccountMeta::new(user, true),
-            AccountMeta::new(vault_state, false),
-            AccountMeta::new(user_position, false),
-            AccountMeta::new(USER_ATA, false),
-            AccountMeta::new_readonly(vault_authority, false),
-            AccountMeta::new(VAULT_ATA, false),
-            AccountMeta::new_readonly(quasar_svm::SPL_TOKEN_PROGRAM_ID, false),
-            AccountMeta::new_readonly(quasar_svm::system_program::ID, false),
-        ],
+        accounts,
         data,
     }
 }
@@ -168,7 +179,7 @@ fn deposit_current_value_withdraw() {
     assert!(init.is_ok(), "initialize: {:?}", init.raw_result);
 
     let deposit = svm.process_instruction(
-        &deposit_ix(user, vault_state, user_position, vault_authority, DEPOSIT_AMOUNT),
+        &deposit_ix(user, vault_state, user_position, vault_authority, DEPOSIT_AMOUNT, vec![]),
         &[
             signer(user, 10_000_000_000),
             init.account(&vault_state).unwrap().clone(),
@@ -203,4 +214,47 @@ fn deposit_current_value_withdraw() {
     );
     assert!(withdraw.is_ok(), "withdraw: {:?}", withdraw.raw_result);
     assert!(token_balance(withdraw.account(&USER_ATA).unwrap()) > DEPOSIT_AMOUNT);
+}
+
+#[test]
+fn deposit_fails_with_unregistered_protocol() {
+    let mut svm = setup();
+
+    let user = USER;
+    let mint = MINT;
+
+    let (vault_state, _) = pda(&[b"drift_vault_state"], &crate::ID);
+    let (vault_authority, _) = pda(&[b"drift_vault_authority"], &crate::ID);
+    let (user_position, _) = pda(&[b"adapter_position", user.as_ref()], &crate::ID);
+
+    let init = svm.process_instruction(
+        &init_ix(user, vault_state, mint),
+        &[signer(user, 10_000_000_000), empty(vault_state)],
+    );
+    assert!(init.is_ok(), "initialize: {:?}", init.raw_result);
+
+    let drift_program = Pubkey::new_from_array(DRIFT_V2_ID.to_bytes());
+    let dummy = Pubkey::new_from_array([99; 32]);
+
+    let remaining = vec![
+        AccountMeta::new_readonly(drift_program, false),
+        AccountMeta::new_readonly(dummy, false),
+        AccountMeta::new(dummy, false),
+        AccountMeta::new(dummy, false),
+        AccountMeta::new(dummy, false),
+        AccountMeta::new_readonly(dummy, false),
+    ];
+
+    let deposit = svm.process_instruction(
+        &deposit_ix(user, vault_state, user_position, vault_authority, DEPOSIT_AMOUNT, remaining),
+        &[
+            signer(user, 10_000_000_000),
+            init.account(&vault_state).unwrap().clone(),
+            empty(user_position),
+            token_account(USER_ATA, mint, user, DEPOSIT_AMOUNT * 2),
+            empty(vault_authority),
+            token_account(VAULT_ATA, mint, vault_authority, 0),
+        ],
+    );
+    assert!(deposit.is_err(), "deposit should fail: {:?}", deposit.raw_result);
 }

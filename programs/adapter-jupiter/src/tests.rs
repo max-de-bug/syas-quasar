@@ -7,6 +7,8 @@ use {
     std::{path::PathBuf, println, vec},
 };
 
+use crate::protocol::JUPITER_PERP_ID;
+
 const USER: Pubkey = Pubkey::new_from_array([1; 32]);
 const MINT: Pubkey = Pubkey::new_from_array([2; 32]);
 const USER_ATA: Pubkey = Pubkey::new_from_array([3; 32]);
@@ -22,7 +24,14 @@ fn deploy_elf_path() -> PathBuf {
             return path;
         }
     }
-    PathBuf::from(std::env!("CARGO_MANIFEST_DIR")).join("target/deploy/adapter_jupiter.so")
+    let manifest = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
+    if let Some(workspace) = manifest.parent().and_then(|p| p.parent()) {
+        let path = workspace.join("target/deploy/adapter_jupiter.so");
+        if path.exists() {
+            return path;
+        }
+    }
+    manifest.join("target/deploy/adapter_jupiter.so")
 }
 
 fn setup() -> QuasarSvm {
@@ -215,4 +224,69 @@ fn deposit_current_value_withdraw() {
         value.compute_units_consumed,
         withdraw.compute_units_consumed
     );
+}
+
+#[test]
+fn deposit_cpi_error_on_unregistered_protocol() {
+    let mut svm = setup();
+
+    let user = USER;
+    let mint = MINT;
+
+    let (vault_state, _) = pda(&[b"jupiter_vault_state"], &crate::ID);
+    let (vault_authority, _) = pda(&[b"jupiter_vault_authority"], &crate::ID);
+    let (user_position, _) = pda(&[b"adapter_position", user.as_ref()], &crate::ID);
+
+    let init = svm.process_instruction(
+        &init_ix(user, vault_state, mint),
+        &[signer(user, 10_000_000_000), empty(vault_state)],
+    );
+    assert!(init.is_ok(), "initialize: {:?}", init.raw_result);
+
+    let dummy = Pubkey::new_from_array([99; 32]);
+    let dummy_writable = Pubkey::new_from_array([98; 32]);
+
+    let mut accounts = vec![
+        AccountMeta::new(user, true),
+        AccountMeta::new(vault_state, false),
+        AccountMeta::new(user_position, false),
+        AccountMeta::new(USER_ATA, false),
+        AccountMeta::new_readonly(vault_authority, false),
+        AccountMeta::new(VAULT_ATA, false),
+        AccountMeta::new_readonly(quasar_svm::SPL_TOKEN_PROGRAM_ID, false),
+        AccountMeta::new_readonly(quasar_svm::system_program::ID, false),
+    ];
+    let jup_pubkey = Pubkey::new_from_array(<[u8; 32]>::try_from(JUPITER_PERP_ID.as_ref()).unwrap());
+    accounts.push(AccountMeta::new_readonly(jup_pubkey, false));
+    accounts.push(AccountMeta::new(dummy, false));
+    accounts.push(AccountMeta::new_readonly(dummy, false));
+    accounts.push(AccountMeta::new(dummy_writable, false));
+    accounts.push(AccountMeta::new(dummy_writable, false));
+    accounts.push(AccountMeta::new_readonly(dummy, false));
+    accounts.push(AccountMeta::new_readonly(dummy, false));
+    accounts.push(AccountMeta::new(dummy_writable, false));
+    accounts.push(AccountMeta::new(dummy_writable, false));
+    accounts.push(AccountMeta::new_readonly(dummy, false));
+
+    let mut data = vec![1];
+    data.extend_from_slice(&DEPOSIT_AMOUNT.to_le_bytes());
+
+    let deposit = svm.process_instruction(
+        &Instruction {
+            program_id: crate::ID,
+            accounts,
+            data,
+        },
+        &[
+            signer(user, 10_000_000_000),
+            init.account(&vault_state).unwrap().clone(),
+            empty(user_position),
+            token_account(USER_ATA, mint, user, DEPOSIT_AMOUNT * 2),
+            empty(vault_authority),
+            token_account(VAULT_ATA, mint, vault_authority, 0),
+            empty(dummy),
+            empty(dummy_writable),
+        ],
+    );
+    assert!(deposit.is_err(), "deposit should fail with CPI error");
 }

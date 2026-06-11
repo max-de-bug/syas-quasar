@@ -210,10 +210,9 @@ export function buildAdapterWithdraw(
     tokenProgram: PublicKey;
   },
   shares: number,
+  remainingAccounts?: AccountMeta[],
 ): TransactionInstruction {
-  return new TransactionInstruction({
-    programId: adapterProgramId,
-    keys: [
+  const keys: AccountMeta[] = [
       { pubkey: accounts.user, isSigner: true, isWritable: true },
       { pubkey: accounts.vaultState, isSigner: false, isWritable: true },
       { pubkey: accounts.userPosition, isSigner: false, isWritable: true },
@@ -221,7 +220,13 @@ export function buildAdapterWithdraw(
       { pubkey: accounts.vaultTokenAccount, isSigner: false, isWritable: true },
       { pubkey: accounts.vaultAuthority, isSigner: false, isWritable: false },
       { pubkey: accounts.tokenProgram, isSigner: false, isWritable: false },
-    ],
+    ];
+  if (remainingAccounts) {
+    keys.push(...remainingAccounts);
+  }
+  return new TransactionInstruction({
+    programId: adapterProgramId,
+    keys,
     data: Buffer.concat([Buffer.from([2]), encodeU64(shares)]),
   });
 }

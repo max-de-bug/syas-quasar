@@ -4,9 +4,12 @@ use {
     adapter_kamino_client::*,
     quasar_svm::{Account, Instruction, Pubkey, QuasarSvm},
     solana_address::Address,
+    solana_instruction::AccountMeta,
     spl_token_interface::state::{Account as TokenAccount, AccountState},
     std::{path::PathBuf, println, vec},
 };
+
+use crate::protocol::KAMINO_LEND_ID;
 
 const USER: Pubkey = Pubkey::new_from_array([1; 32]);
 const MINT: Pubkey = Pubkey::new_from_array([2; 32]);
@@ -23,7 +26,14 @@ fn deploy_elf_path() -> PathBuf {
             return path;
         }
     }
-    PathBuf::from(std::env!("CARGO_MANIFEST_DIR")).join("target/deploy/adapter_kamino.so")
+    let manifest = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
+    if let Some(workspace) = manifest.parent().and_then(|p| p.parent()) {
+        let path = workspace.join("target/deploy/adapter_kamino.so");
+        if path.exists() {
+            return path;
+        }
+    }
+    manifest.join("target/deploy/adapter_kamino.so")
 }
 
 fn setup() -> QuasarSvm {
@@ -189,6 +199,7 @@ fn deposit_current_value_withdraw() {
         vault_authority,
         token_program: to_address(token_program),
         amount: WITHDRAW_SHARES,
+        remaining_accounts: vec![],
     }
     .into();
 
@@ -227,5 +238,87 @@ fn deposit_current_value_withdraw() {
         deposit_result.compute_units_consumed,
         value_result.compute_units_consumed,
         withdraw_result.compute_units_consumed
+    );
+}
+
+#[test]
+fn deposit_cpi_fails_without_protocol_program() {
+    let mut svm = setup();
+
+    let program_id = to_address(crate::ID);
+    let user = USER;
+    let mint = MINT;
+
+    let (vault_state, _) = find_vault_state_address(&program_id);
+    let (vault_authority, _) = find_vault_authority_address(&program_id);
+    let (user_position, _) = find_user_position_address(&to_address(user), &program_id);
+
+    let vault_state_pk = to_pubkey(vault_state);
+    let vault_authority_pk = to_pubkey(vault_authority);
+    let user_position_pk = to_pubkey(user_position);
+
+    let token_program = quasar_svm::SPL_TOKEN_PROGRAM_ID;
+    let system_program = quasar_svm::system_program::ID;
+    let rent = quasar_svm::solana_sdk_ids::sysvar::rent::ID;
+
+    let init_ix: Instruction = InitializeInstruction {
+        authority: to_address(user),
+        vault_state,
+        rent: to_address(rent),
+        system_program: to_address(system_program),
+        underlying_mint: to_address(mint),
+    }
+    .into();
+
+    let init_result = svm.process_instruction(
+        &init_ix,
+        &[signer(user, 10_000_000_000), empty(vault_state_pk)],
+    );
+    assert!(init_result.is_ok(), "init failed: {:?}", init_result.raw_result);
+
+    let kamino_pk = to_pubkey(KAMINO_LEND_ID);
+    let dummy = Pubkey::new_from_array([99; 32]);
+
+    let deposit_ix: Instruction = DepositInstruction {
+        user: to_address(user),
+        vault_state,
+        user_position,
+        user_token_account: to_address(USER_ATA),
+        vault_authority,
+        vault_token_account: to_address(VAULT_ATA),
+        token_program: to_address(token_program),
+        system_program: to_address(system_program),
+        amount: DEPOSIT_AMOUNT,
+        remaining_accounts: vec![
+            AccountMeta { pubkey: kamino_pk, is_signer: false, is_writable: false },
+            AccountMeta { pubkey: dummy, is_signer: false, is_writable: true },
+            AccountMeta { pubkey: dummy, is_signer: false, is_writable: false },
+            AccountMeta { pubkey: dummy, is_signer: false, is_writable: false },
+            AccountMeta { pubkey: dummy, is_signer: false, is_writable: false },
+            AccountMeta { pubkey: dummy, is_signer: false, is_writable: true },
+            AccountMeta { pubkey: dummy, is_signer: false, is_writable: false },
+            AccountMeta { pubkey: dummy, is_signer: false, is_writable: true },
+            AccountMeta { pubkey: dummy, is_signer: false, is_writable: false },
+            AccountMeta { pubkey: dummy, is_signer: false, is_writable: false },
+        ],
+    }
+    .into();
+
+    let deposit_result = svm.process_instruction(
+        &deposit_ix,
+        &[
+            signer(user, 10_000_000_000),
+            init_result.account(&vault_state_pk).unwrap().clone(),
+            empty(user_position_pk),
+            token_account(USER_ATA, mint, user, DEPOSIT_AMOUNT * 2),
+            empty(vault_authority_pk),
+            token_account(VAULT_ATA, mint, vault_authority_pk, 0),
+        ],
+    );
+
+    assert!(
+        deposit_result.is_err(),
+        "deposit with CPI should fail: protocol program not registered in quasar-svm: {:?}",
+        deposit_result.raw_result
     );
 }

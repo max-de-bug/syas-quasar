@@ -335,14 +335,6 @@ export async function runAdapterDepositWithdrawFlow(
     systemProgram: SystemProgram.programId,
   };
 
-  const remainingAccounts = [];
-  if (isMainnetFork()) {
-    const protocolId = protocolProgramForAdapter(adapterProgramId);
-    if (protocolId) {
-      remainingAccounts.push({ pubkey: protocolId, isSigner: false, isWritable: false });
-    }
-  }
-
   const vaultBalanceBeforeDeposit = await getTokenBalance(
     provider.connection,
     vaultTokenAccount
@@ -352,7 +344,7 @@ export async function runAdapterDepositWithdrawFlow(
     adapterProgramId,
     depositAccounts,
     depositAmount,
-    remainingAccounts.length > 0 ? remainingAccounts : undefined,
+    undefined,
   );
   await provider.sendIx(depositIx);
 
@@ -362,14 +354,6 @@ export async function runAdapterDepositWithdrawFlow(
   );
   expect(vaultBalanceAfterDeposit - vaultBalanceBeforeDeposit).to.equal(depositAmount);
 
-  const cvRemaining = [];
-  if (isMainnetFork()) {
-    const protocolId = protocolProgramForAdapter(adapterProgramId);
-    if (protocolId) {
-      cvRemaining.push({ pubkey: protocolId, isSigner: false, isWritable: false });
-    }
-  }
-
   const currentValueIx = buildAdapterCurrentValue(
     adapterProgramId,
     {
@@ -377,7 +361,7 @@ export async function runAdapterDepositWithdrawFlow(
       vaultState: vaultStatePda,
       userPosition: userPositionPda,
     },
-    cvRemaining.length > 0 ? cvRemaining : undefined,
+    undefined,
   );
   await provider.sendIx(currentValueIx);
 
@@ -398,6 +382,7 @@ export async function runAdapterDepositWithdrawFlow(
       tokenProgram: TOKEN_PROGRAM,
     },
     withdrawShares,
+    undefined,
   );
   await provider.sendIx(withdrawIx);
 

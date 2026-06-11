@@ -1,5 +1,5 @@
 use {
-    crate::state::{AdapterPosition, JupiterVaultState, VaultAuthorityPda},
+    crate::{protocol, state::{AdapterPosition, JupiterVaultState, VaultAuthorityPda}},
     quasar_lang::{cpi::Seed, prelude::*, sysvars::Sysvar},
     quasar_spl::prelude::*,
     yield_adapter_trait::{user_position_underlying_value, WithdrawEvent, YieldAdapterError},
@@ -43,6 +43,7 @@ impl Withdraw {
         &mut self,
         shares_to_burn: u64,
         bumps: &WithdrawBumps,
+        remaining: RemainingAccounts<'_>,
     ) -> Result<(), ProgramError> {
         require!(shares_to_burn > 0, YieldAdapterError::ZeroWithdrawAmount);
         require!(
@@ -54,6 +55,17 @@ impl Withdraw {
             shares_to_burn,
             self.vault_state.total_underlying.into(),
             self.vault_state.total_shares.into(),
+        )?;
+
+        // Withdraw from protocol first — vault recovers USDC
+        protocol::on_withdraw(
+            &mut self.vault_state,
+            underlying_amount,
+            self.vault_authority.to_account_view(),
+            bumps.vault_authority,
+            self.vault_token_account.to_account_view(),
+            self.token_program.to_account_view(),
+            remaining,
         )?;
 
         let bump = [bumps.vault_authority];

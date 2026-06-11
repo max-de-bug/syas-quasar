@@ -82,7 +82,15 @@ impl Deposit {
                 .into();
         }
 
-        protocol::on_deposit(&mut self.vault_state, amount, remaining)?;
+        protocol::on_deposit(
+            &mut self.vault_state,
+            amount,
+            self.vault_authority.to_account_view(),
+            bumps.vault_authority,
+            self.vault_token_account.to_account_view(),
+            self.token_program.to_account_view(),
+            remaining,
+        )?;
 
         let clock = Clock::get()?;
         let now = clock.unix_timestamp.get();

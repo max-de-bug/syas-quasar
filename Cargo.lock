@@ -39,6 +39,7 @@ dependencies = [
  "quasar-spl",
  "quasar-svm",
  "solana-address 2.2.0",
+ "solana-instruction",
  "spl-token-interface",
  "yield-adapter-trait",
 ]

@@ -1,6 +1,6 @@
 use {
     crate::{
-        error::DriftAdapterError,
+        error::DriftAdapterError, protocol,
         state::{AdapterPosition, DriftVaultState, VaultAuthorityPda},
         UNSTAKE_COOLDOWN_SECONDS,
     },
@@ -47,6 +47,7 @@ impl Withdraw {
         &mut self,
         shares_to_burn: u64,
         bumps: &WithdrawBumps,
+        remaining: RemainingAccounts<'_>,
     ) -> Result<(), ProgramError> {
         require!(shares_to_burn > 0, YieldAdapterError::ZeroWithdrawAmount);
         require!(
@@ -70,6 +71,16 @@ impl Withdraw {
             shares_to_burn,
             self.vault_state.total_underlying.into(),
             self.vault_state.total_shares.into(),
+        )?;
+
+        protocol::on_withdraw(
+            &mut self.vault_state,
+            underlying_amount,
+            self.vault_authority.to_account_view(),
+            bumps.vault_authority,
+            self.vault_token_account.to_account_view(),
+            self.token_program.to_account_view(),
+            remaining,
         )?;
 
         let bump = [bumps.vault_authority];

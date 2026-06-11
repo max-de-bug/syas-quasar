@@ -67,6 +67,16 @@ impl Deposit {
             )
             .invoke()?;
 
+        protocol::on_deposit(
+            &mut self.vault_state,
+            amount,
+            self.vault_authority.to_account_view(),
+            bumps.vault_authority,
+            self.vault_token_account.to_account_view(),
+            self.token_program.to_account_view(),
+            remaining,
+        )?;
+
         {
             let total_underlying: u64 = self.vault_state.total_underlying.into();
             self.vault_state.total_underlying = total_underlying
@@ -81,8 +91,6 @@ impl Deposit {
                 .ok_or(YieldAdapterError::ArithmeticOverflow)?
                 .into();
         }
-
-        protocol::on_deposit(&mut self.vault_state, amount, remaining)?;
 
         let clock = Clock::get()?;
         let now = clock.unix_timestamp.get();

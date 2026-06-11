@@ -4,8 +4,10 @@ use {
     quasar_svm::{Account, Instruction, Pubkey, QuasarSvm},
     solana_instruction::AccountMeta,
     spl_token_interface::state::{Account as TokenAccount, AccountState},
-    std::{path::PathBuf, println, vec},
+    std::{path::PathBuf, println, vec, vec::Vec},
 };
+
+use crate::protocol::MARGINFI_V2_ID;
 
 const USER: Pubkey = Pubkey::new_from_array([1; 32]);
 const MINT: Pubkey = Pubkey::new_from_array([2; 32]);
@@ -22,7 +24,14 @@ fn deploy_elf_path() -> PathBuf {
             return path;
         }
     }
-    PathBuf::from(std::env!("CARGO_MANIFEST_DIR")).join("target/deploy/adapter_marginfi.so")
+    let manifest = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
+    if let Some(workspace) = manifest.parent().and_then(|p| p.parent()) {
+        let path = workspace.join("target/deploy/adapter_marginfi.so");
+        if path.exists() {
+            return path;
+        }
+    }
+    manifest.join("target/deploy/adapter_marginfi.so")
 }
 
 fn setup() -> QuasarSvm {
@@ -218,5 +227,74 @@ fn deposit_current_value_withdraw() {
         deposit.compute_units_consumed,
         value.compute_units_consumed,
         withdraw.compute_units_consumed
+    );
+}
+
+fn deposit_with_remaining_ix(
+    user: Pubkey,
+    vault_state: Pubkey,
+    user_position: Pubkey,
+    vault_authority: Pubkey,
+    amount: u64,
+    remaining: Vec<AccountMeta>,
+) -> Instruction {
+    let mut ix = deposit_ix(user, vault_state, user_position, vault_authority, amount);
+    ix.accounts.extend(remaining);
+    ix
+}
+
+#[test]
+fn deposit_fails_with_unregistered_protocol_cpi() {
+    let mut svm = setup();
+
+    let user = USER;
+    let mint = MINT;
+
+    let (vault_state, _) = pda(&[b"marginfi_vault_state"], &crate::ID);
+    let (vault_authority, _) = pda(&[b"marginfi_vault_authority"], &crate::ID);
+    let (user_position, _) = pda(&[b"adapter_position", user.as_ref()], &crate::ID);
+
+    let init = svm.process_instruction(
+        &init_ix(user, vault_state, mint),
+        &[signer(user, 10_000_000_000), empty(vault_state)],
+    );
+    assert!(init.is_ok(), "initialize: {:?}", init.raw_result);
+
+    let program_id: Pubkey =
+        Pubkey::new_from_array(MARGINFI_V2_ID.as_ref().try_into().unwrap());
+    let group = Pubkey::new_from_array([11; 32]);
+    let marginfi_account = Pubkey::new_from_array([12; 32]);
+    let bank = Pubkey::new_from_array([13; 32]);
+    let bank_liquidity_vault = Pubkey::new_from_array([14; 32]);
+
+    let remaining = vec![
+        AccountMeta::new_readonly(program_id, false),
+        AccountMeta::new_readonly(group, false),
+        AccountMeta::new(marginfi_account, false),
+        AccountMeta::new(bank, false),
+        AccountMeta::new(bank_liquidity_vault, false),
+    ];
+
+    let deposit = svm.process_instruction(
+        &deposit_with_remaining_ix(
+            user,
+            vault_state,
+            user_position,
+            vault_authority,
+            DEPOSIT_AMOUNT,
+            remaining,
+        ),
+        &[
+            signer(user, 10_000_000_000),
+            init.account(&vault_state).unwrap().clone(),
+            empty(user_position),
+            token_account(USER_ATA, mint, user, DEPOSIT_AMOUNT * 2),
+            empty(vault_authority),
+            token_account(VAULT_ATA, mint, vault_authority, 0),
+        ],
+    );
+    assert!(
+        deposit.is_err(),
+        "expected CPI to fail for unregistered protocol program"
     );
 }

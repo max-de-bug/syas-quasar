@@ -37,8 +37,12 @@ mod adapter_kamino {
     }
 
     #[instruction(discriminator = 2)]
-    pub fn withdraw(ctx: Ctx<Withdraw>, amount: u64) -> Result<(), ProgramError> {
-        ctx.accounts.handler(amount, &ctx.bumps)
+    pub fn withdraw(
+        ctx: CtxWithRemaining<Withdraw>,
+        amount: u64,
+    ) -> Result<(), ProgramError> {
+        ctx.accounts
+            .handler(amount, &ctx.bumps, ctx.remaining_accounts())
     }
 
     #[instruction(discriminator = 3)]

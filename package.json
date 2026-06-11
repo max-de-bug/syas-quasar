@@ -18,8 +18,9 @@
   },
   "dependencies": {
     "@anchor-lang/core": "1.0.1",
-    "@solana/web3.js": "^1.95.8",
-    "@solana/spl-token": "^0.4.13"
+    "@kamino-finance/klend-sdk": "^8.0.2",
+    "@solana/spl-token": "^0.4.13",
+    "@solana/web3.js": "^1.95.8"
   },
   "devDependencies": {
     "@types/bn.js": "^5.1.5",
