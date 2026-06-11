@@ -16,9 +16,9 @@ Same four phases as the Anchor baseline:
 | Phase | Command (Anchor) | Command (Quasar) |
 |-------|------------------|------------------|
 | Build | `npm run build` | `npm run build` → `scripts/build-quasar.sh` |
-| Fork validator | clone mainnet programs | identical `run-mainnet-fork-tests.sh` |
+| Fork validator | clone mainnet programs | `run-mainnet-fork-tests.sh` or `run-fork-surfpool.sh` |
 | Deploy | deploy 7 `.so` to fork | same keypairs, same deploy loop |
-| Tests | 20 fork integration tests | same 20 tests (TS clients from Quasar IDL) |
+| Tests | 20 fork integration tests | 22 tests (all 5 adapters + registry + dispatcher + template) |
 
 Run both side-by-side:
 
@@ -57,8 +57,9 @@ export QUASAR_ROOT=/path/to/quasar
 ```bash
 npm install
 npm run build          # Quasar SBF build (when port complete)
-npm test               # Local QuasarSVM / fork tests
-npm run test:fork      # Mainnet-fork suite (20 tests)
+npm test               # Local QuasarSVM / fork tests (mocha)
+npm run test:fork      # Mainnet-fork suite (22 tests)
+bash scripts/run-fork-surfpool.sh  # Surfpool variant
 npm run benchmark      # Compare Anchor vs Quasar timings
 ```
 

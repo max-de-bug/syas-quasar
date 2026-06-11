@@ -95,6 +95,10 @@ pub fn before_value_query(
 ) -> Result<(), ProgramError> {
     let _ = vault;
     let mut iter = remaining.iter();
-    let prog = iter.next().ok_or(YieldAdapterError::ProtocolCpiError)??;
-    yield_adapter_trait::verify_protocol_program_account(&prog, EXTERNAL_PROGRAM_ID)
+    if let Some(prog) = iter.next() {
+        let prog = prog?;
+        yield_adapter_trait::verify_protocol_program_account(&prog, EXTERNAL_PROGRAM_ID)
+    } else {
+        Ok(())
+    }
 }

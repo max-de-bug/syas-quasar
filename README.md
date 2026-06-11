@@ -109,39 +109,37 @@ The Yield Adapter Standard solves this by providing a **single interface** that 
 ### Prerequisites
 
 - [Rust](https://rustup.rs/) (1.75+)
-- [Solana CLI](https://docs.solana.com/cli/install-solana-cli-tools) (2.2.20+)
-- [Anchor CLI](https://www.anchor-lang.com/docs/installation) (1.0.1)
+- [Solana CLI](https://docs.solana.com/cli/install-solana-cli-tools) (2.2.20+) or [Agave 3.1.10](https://github.com/anza-xyz/agave) (for Quasar builds)
+- [Quasar](https://github.com/blueshift-gg/quasar) CLI (framework)
 - [Node.js](https://nodejs.org/) (18+)
 
 ### Build
 
 ```bash
-# Clone the repository
-git clone https://github.com/your-org/solana-yield-adapter-standard.git
-cd solana-yield-adapter-standard
+git clone https://github.com/max-de-bug/syas-quasar.git
+cd syas-quasar
 
-# Install toolchain (Solana 2.2.20 + Anchor 1.0.1)
-./scripts/install-toolchain.sh
+npm install
 
-# Install dependencies
-yarn install
-
-# Build all programs (.so in target/deploy/)
-# Requires Agave 3.1.x platform-tools for SBF: agave-install init 3.1.10
+# Build all 8 programs (.so in target/deploy/)
+# Requires Agave 3.1.x: agave-install init 3.1.10
 npm run build
 ```
 
 ### Test
 
 ```bash
-# Run unit tests (local validator, legacy mode)
-npm test
+# QuasarSVM unit tests (fast, no validator)
+cargo test --package adapter-registry
+cargo test --package yield-dispatcher
+# ... or per-program: cd programs/<name> && quasar test
 
-# Run mainnet-fork integration tests
+# Mainnet-fork integration tests (solana-test-validator)
 npm run test:fork
-```
 
-See [SUBMISSION.md](SUBMISSION.md) and [docs/REFERENCE_IMPLEMENTATION.md](docs/REFERENCE_IMPLEMENTATION.md) for bounty submission notes (reference adapters, program IDs).
+# Mainnet-fork tests via Surfpool (alternative, JIT account fetching)
+bash scripts/run-fork-surfpool.sh
+```
 
 ### Deploy to Devnet
 
@@ -149,26 +147,29 @@ See [SUBMISSION.md](SUBMISSION.md) and [docs/REFERENCE_IMPLEMENTATION.md](docs/R
 ./scripts/deploy-devnet.sh
 ```
 
+See [SUBMISSION.md](SUBMISSION.md) and [docs/REFERENCE_IMPLEMENTATION.md](docs/REFERENCE_IMPLEMENTATION.md) for program IDs and devnet deployment references.
+
 ---
 
 ## Reference Adapters
 
 | Adapter | Protocol | Underlying | Model | Status |
 |---|---|---|---|---|
-| **Kamino USDC** | [Kamino Finance](https://kamino.finance) | USDC | Share-based reference vault | 🔶 Reference |
-| **MarginFi USDC** | [MarginFi](https://marginfi.com) | USDC | Share-based reference vault | 🔶 Reference |
-| **Jupiter LP** | [Jupiter](https://jup.ag) | USDC | Share-based reference vault | 🔶 Reference |
-| **Maple Syrup** | [Maple Finance](https://maple.finance) | USDC | syrupUSDC-style reference | 🔶 Reference |
-| **Drift Insurance** | [Drift Protocol](https://drift.trade) | USDC | IF staking (13d cooldown) | 🔶 Reference |
+| **Kamino USDC** | [Kamino Finance](https://kamino.finance) | USDC | Share-based reference vault | ✅ Complete |
+| **MarginFi USDC** | [MarginFi](https://marginfi.com) | USDC | Share-based reference vault | ✅ Complete |
+| **Jupiter LP** | [Jupiter](https://jup.ag) | USDC | Share-based reference vault | ✅ Complete |
+| **Maple Syrup** | [Maple Finance](https://maple.finance) | USDC | syrupUSDC-style reference | ✅ Complete |
+| **Drift Insurance** | [Drift Protocol](https://drift.trade) | USDC | IF staking (13d cooldown) | ✅ Complete |
+| **Template** | — | — | Scaffold for new adapters | ✅ Scaffold |
 
-> **Note**: Maple and Drift adapters are reference implementations demonstrating correct interface compliance. Maple operates primarily on EVM chains, and Drift's protocol status may affect live CPI availability.
+> **Note**: Maple and Drift adapters demonstrate correct interface compliance. Maple operates primarily on EVM chains, and Drift's protocol status may affect live CPI availability. The template adapter is a scaffold — copy it to build a new adapter in under a day.
 
 ---
 
 ## Project Structure
 
 ```
-solana-yield-adapter-standard/
+syas-quasar/
 ├── crates/
 │   └── yield-adapter-trait/     # Core interface definitions (shared crate)
 ├── programs/
@@ -178,17 +179,28 @@ solana-yield-adapter-standard/
 │   ├── adapter-marginfi/        # MarginFi USDC adapter
 │   ├── adapter-jupiter/         # Jupiter LP adapter
 │   ├── adapter-maple/           # Maple Syrup adapter
-│   └── adapter-drift/           # Drift Insurance Fund adapter
+│   ├── adapter-drift/           # Drift Insurance Fund adapter
+│   └── adapter-template/        # Scaffold for new adapters
 ├── tests/
 │   ├── helpers/                 # Shared test utilities
+│   ├── fixtures/                # Fork test account snapshots
+│   ├── adapters/                # Per-adapter integration tests
 │   ├── registry.test.ts         # Registry governance tests
 │   └── dispatcher.test.ts       # Dispatcher routing tests
 ├── scripts/
-│   ├── run-mainnet-fork-tests.sh
-│   └── deploy-devnet.sh
+│   ├── build-quasar.sh          # Quasar build orchestrator
+│   ├── run-mainnet-fork-tests.sh# solana-test-validator fork runner
+│   ├── run-fork-surfpool.sh     # Surfpool fork runner (alternative)
+│   ├── deploy-devnet.sh         # Devnet deployment
+│   ├── setup-fork-usdc-fixture.sh
+│   └── gen-fork-usdc-fixture.mjs
 ├── docs/
 │   ├── ADAPTER_STANDARD.md      # Formal specification
-│   └── BUILD_YOUR_OWN_ADAPTER.md # Developer guide
+│   ├── BUILD_YOUR_OWN_ADAPTER.md# Developer guide
+│   └── REFERENCE_IMPLEMENTATION.md
+├── Surfpool.toml                # Surfpool configuration
+├── txtx.yml                     # Surfpool runbook manifest
+├── runbooks/                    # Surfpool deployment runbooks
 ├── docs-site/                   # Mintlify documentation site
 ├── Anchor.toml
 ├── Cargo.toml
@@ -199,24 +211,49 @@ solana-yield-adapter-standard/
 
 ## Testing
 
-### Unit Tests
+Three test layers, each covering the same `deposit → current_value → withdraw` lifecycle:
+
+### 1. Rust Unit Tests (QuasarSVM, no validator)
 
 ```bash
-anchor test
+# Per-program QuasarSVM tests — in-process, milliseconds
+cd programs/adapter-registry && quasar test     # 3 tests
+cd programs/yield-dispatcher && quasar test     # 6 tests
+cd programs/adapter-kamino   && quasar test     # 2 tests
+# ... same for marginfi, jupiter, maple, drift, template
 ```
 
-Tests cover:
-- **Registry**: Initialize → Propose → Approve → Revoke → Transfer governance
-- **Dispatcher**: Initialize → Deposit → Withdraw → Current value → Error cases
-- **Adapters**: Deposit → Verify shares → Withdraw → Verify balances
+Fastest feedback loop — runs without a Solana validator.
 
-### Mainnet-Fork Tests
+### 2. Mainnet-Fork Tests (solana-test-validator)
 
 ```bash
-./scripts/run-mainnet-fork-tests.sh
+npm run test:fork
 ```
 
-Clones live program state from mainnet (Kamino, MarginFi, Drift) and runs integration tests against real on-chain state.
+Clones live mainnet programs (Kamino K-Lend, MarginFi v2, Jupiter Perps, Drift v2) and fixture token accounts into `solana-test-validator`, deploys local programs, and runs **22 integration tests** against real on-chain state.
+
+### 3. Mainnet-Fork Tests (Surfpool — alternative)
+
+```bash
+bash scripts/run-fork-surfpool.sh
+```
+
+Uses [Surfpool](https://surfpool.run) instead of `solana-test-validator`. Surfpool JIT-fetches accounts from mainnet on demand and loads pre-configured snapshots. Requires a `MAINNET_RPC_URL` for custom RPC endpoints.
+
+### Test coverage
+
+| Suite | Tests | What it verifies |
+|-------|-------|------------------|
+| Registry | 6 | Init, propose, approve, revoke, governance, access control |
+| Dispatcher | 5 | Init, deposit/withdraw via CPI, reject unapproved, reject zero |
+| Kamino | 2 | Program load + deposit → current_value → withdraw |
+| MarginFi | 2 | Program load + deposit → current_value → withdraw |
+| Jupiter | 2 | Program load + deposit → current_value → withdraw |
+| Maple | 2 | deposit → current_value → withdraw (syrupUSDC) + zero reject |
+| Drift | 2 | Program load + deposit → current_value → withdraw |
+| Template | 1 | deposit → current_value → withdraw |
+| **Total** | **22** | All pass on mainnet fork |
 
 ---
 
@@ -273,10 +310,10 @@ Quasar's `#![no_std]` + zero-copy serialization eliminates the Borsh runtime ove
 
 | Test Suite | Anchor | Quasar |
 |------------|--------|--------|
-| Rust unit tests | — (mocha only) | 19 tests, <0.1s |
+| Rust unit tests | — (mocha only) | 21 tests (QuasarSVM) |
 | QuasarSVM integration | — | 21 tests (per-program) |
 | Localnet (validator) | 13 passing, 27s | QuasarSVM only |
-| Mainnet fork | 21 tests | same test suite |
+| Mainnet fork | 20 tests | **22 tests** |
 
 QuasarSVM tests run **in-process** without a Solana validator, making them orders of magnitude faster than `anchor test`. Framework-level integration tests (`deposit → current_value → withdraw` lifecycle) complete in milliseconds vs 3+ seconds per adapter via RPC.
 
